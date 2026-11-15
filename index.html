@@ -1,0 +1,144 @@
+<!doctype html>
+<html lang="de">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="theme-color" content="#090909">
+<title>SBK FADEZ — Termin buchen</title>
+<style>
+:root{color-scheme:dark;--bg:#090909;--panel:#141414;--line:#292929;--muted:#a5a5a5;--red:#e32636;--white:#f7f7f7}
+*{box-sizing:border-box}body{margin:0;background:radial-gradient(ellipse at 50% -10%,#3b1116 0,transparent 42%),var(--bg);color:var(--white);font:16px/1.5 system-ui,-apple-system,Segoe UI,sans-serif}
+main{max-width:760px;margin:auto;padding:28px 18px 60px}.brand{text-align:center;padding:28px 10px 26px;border-bottom:1px solid var(--line)}
+.mark{display:inline-grid;place-items:center;width:58px;height:58px;border:2px solid var(--red);border-radius:50%;font-weight:900;color:var(--red);letter-spacing:-2px;font-size:20px}
+h1{font-size:clamp(34px,9vw,58px);letter-spacing:2px;line-height:1;margin:16px 0 7px;font-weight:950}
+.tag{color:var(--muted);letter-spacing:4px;font-size:11px}.today{display:inline-block;margin-top:16px;padding:6px 12px;border:1px solid #553037;border-radius:99px;color:#ffb8bf;font-size:13px}
+section{margin-top:24px}.heading{font-size:12px;letter-spacing:2px;color:var(--muted);font-weight:800;margin:0 0 12px}
+.services{display:grid;gap:10px}.service{display:flex;align-items:center;justify-content:space-between;gap:12px;text-align:left;background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:15px;color:var(--white);width:100%;cursor:pointer}
+.service.selected{border:1.5px solid var(--red);background:#211114}.service strong{display:block;font-size:16px}.service small{display:block;color:var(--muted);margin-top:3px}.price{font-size:22px;font-weight:900;white-space:nowrap}.price em{font-size:11px;color:var(--muted);font-style:normal}
+.slots{display:grid;grid-template-columns:repeat(3,1fr);gap:9px}.slot{padding:12px 4px;border-radius:10px;border:1px solid var(--line);background:var(--panel);color:var(--white);font-weight:750;cursor:pointer}.slot.selected{background:var(--red);border-color:var(--red)}.slot:disabled{opacity:.3;cursor:not-allowed;text-decoration:line-through}
+label{display:block;font-size:13px;color:#ccc;margin:13px 0 6px}input{width:100%;padding:14px;border-radius:10px;border:1px solid var(--line);background:#101010;color:white;font:inherit}
+button.primary{width:100%;margin-top:18px;background:var(--red);color:white;border:0;border-radius:12px;padding:15px;font-weight:900;font-size:16px;cursor:pointer}
+button:disabled{opacity:.5;cursor:not-allowed}.note,.status{font-size:12px;color:var(--muted);margin-top:10px}.status{font-size:14px;white-space:pre-wrap}.success{color:#8ee0a7}.error{color:#ff9ba4}
+a.wa{display:inline-block;margin-top:12px;padding:12px 16px;border:1px solid #287b4a;border-radius:10px;color:#a4f0bd;text-decoration:none;font-weight:750}
+footer{text-align:center;color:#777;font-size:11px;margin-top:34px;letter-spacing:1px}
+</style>
+</head>
+<body>
+<main>
+<header class="brand">
+  <div class="mark">SBK</div>
+  <h1>SBK FADEZ</h1>
+  <div class="tag">CLEAN CUTS. SHARP DETAILS.</div>
+  <div class="today">SONNTAG · 15. NOVEMBER 2026</div>
+</header>
+
+<section>
+  <h2 class="heading">01 / SERVICE WÄHLEN</h2>
+  <div class="services" id="services">
+    <button class="service selected" data-service="basic" type="button"><span><strong>Basic Cut</strong><small>McSmart Menu</small></span><span class="price">5 €</span></button>
+    <button class="service" data-service="beard" type="button"><span><strong>Cut + Bart</strong><small>20 Nuggets</small></span><span class="price">10 €</span></button>
+    <button class="service" data-service="weekend" type="button"><span><strong>Weekend Special</strong><small>Cut + Bart + Happy Ending · 4× mexikanische Pizza</small></span><span class="price">13 €</span></button>
+  </div>
+</section>
+
+<section>
+  <h2 class="heading">02 / UHRZEIT WÄHLEN · 30 MINUTEN</h2>
+  <div class="slots" id="slots"></div>
+  <p class="note">Freie Zeiten werden live aus der Buchungsdatenbank geladen. Bereits gebuchte Zeiten sind gesperrt.</p>
+</section>
+
+<section>
+  <h2 class="heading">03 / DEINE ANGABEN</h2>
+  <form id="booking">
+    <label for="name">Name</label><input id="name" autocomplete="name" required maxlength="80" placeholder="Dein Name">
+    <label for="phone">Telefonnummer</label><input id="phone" autocomplete="tel" required maxlength="30" placeholder="+49 ...">
+    <button class="primary" id="submit" type="submit">TERMIN VERBINDLICH BUCHEN</button>
+  </form>
+  <div id="status" class="status" role="status"></div>
+  <div id="wa"></div>
+  <p class="note">Jeder Termin dauert 30 Minuten. Das Weekend Special ist nur samstags und sonntags buchbar.</p>
+</section>
+<footer>SBK FADEZ · BOOK YOUR FADE</footer>
+</main>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script>
+/*
+  SETUP: Replace the two placeholder values below with your Supabase
+  Project URL and Publishable Key. Never put a Secret/service_role key here.
+*/
+const SUPABASE_URL = "PASTE_YOUR_PROJECT_URL_HERE";
+const SUPABASE_PUBLISHABLE_KEY = "PASTE_YOUR_PUBLISHABLE_KEY_HERE";
+const BARBER_WHATSAPP = "41762254861";
+const BOOKING_DATE = "2026-11-15"; // This page is configured for today's appointments only.
+const TIMES = ["14:00","14:30","15:00","15:30","16:00","16:30","17:00","17:30","18:00","18:30","19:00","19:30"];
+const SERVICES = {
+  basic:{label:"Basic Cut",price:5},
+  beard:{label:"Cut + Bart",price:10},
+  weekend:{label:"Weekend Special",price:13}
+};
+const $ = s => document.querySelector(s);
+let selectedService = "basic", selectedTime = null, booked = new Set(), client = null;
+
+function setStatus(message,kind="") { const el=$("#status"); el.textContent=message; el.className="status "+kind; }
+function isWeekend(date){const d=new Date(date+"T12:00:00");return d.getDay()===0||d.getDay()===6;}
+function renderSlots(){
+  const wrap=$("#slots"); wrap.innerHTML="";
+  TIMES.forEach(time=>{
+    const b=document.createElement("button"); b.type="button"; b.className="slot"; b.textContent=time;
+    const now=new Date(), today=now.toLocaleDateString("en-CA");
+    const [h,m]=time.split(":").map(Number);
+    const isPast=today===BOOKING_DATE && (h<now.getHours() || (h===now.getHours() && m<=now.getMinutes()));
+    b.disabled=booked.has(time)||isPast;
+    if(booked.has(time)) b.title="Bereits vergeben";
+    b.addEventListener("click",()=>{selectedTime=time;document.querySelectorAll(".slot").forEach(x=>x.classList.remove("selected"));b.classList.add("selected");setStatus("");});
+    if(selectedTime===time)b.classList.add("selected");
+    wrap.appendChild(b);
+  });
+}
+async function refreshSlots(){
+  if(!client){renderSlots();return;}
+  try{
+    const {data,error}=await client.rpc("get_sbk_booked_slots",{p_date:BOOKING_DATE});
+    if(error) throw error;
+    booked=new Set((data||[]).map(x=>x.slot_time));
+    if(booked.has(selectedTime)) selectedTime=null;
+    renderSlots();
+  }catch(e){setStatus("Die Verfügbarkeit konnte nicht geladen werden. Bitte später erneut versuchen.","error");}
+}
+document.querySelectorAll(".service").forEach(b=>b.addEventListener("click",()=>{
+  selectedService=b.dataset.service;
+  document.querySelectorAll(".service").forEach(x=>x.classList.toggle("selected",x===b));
+}));
+$("#booking").addEventListener("submit",async e=>{
+  e.preventDefault();
+  if(!client){setStatus("Die Website ist noch nicht mit Supabase verbunden. Bitte erst die Einrichtung abschließen.","error");return;}
+  if(!selectedTime){setStatus("Bitte wähle zuerst eine freie Uhrzeit.","error");return;}
+  if(selectedService==="weekend"&&!isWeekend(BOOKING_DATE)){setStatus("Das Weekend Special gibt es nur samstags und sonntags.","error");return;}
+  const name=$("#name").value.trim(), phone=$("#phone").value.trim();
+  if(!name||!phone){setStatus("Bitte Name und Telefonnummer eingeben.","error");return;}
+  $("#submit").disabled=true; setStatus("Dein Termin wird gebucht …");
+  try{
+    const {data,error}=await client.rpc("book_sbk_appointment",{
+      p_booking_date:BOOKING_DATE,p_slot_time:selectedTime,p_service:selectedService,
+      p_customer_name:name,p_customer_phone:phone
+    });
+    if(error) throw error;
+    if(!data || data.ok!==true) throw new Error(data?.message||"Dieser Slot ist leider nicht mehr verfügbar.");
+    const time=selectedTime, service=SERVICES[selectedService];
+    booked.add(time); selectedTime=null; renderSlots();
+    setStatus(`Gebucht! ${service.label} am 15.11.2026 um ${time} Uhr. Preis: ${service.price} €.`, "success");
+    const msg=encodeURIComponent(`Neue SBK FADEZ Buchung:\n${name}\n${phone}\n${service.label} – ${service.price} €\n15.11.2026 um ${time} Uhr`);
+    $("#wa").innerHTML=`<a class="wa" target="_blank" rel="noopener" href="https://wa.me/${BARBER_WHATSAPP}?text=${msg}">Barber per WhatsApp informieren</a>`;
+    $("#booking").reset();
+  }catch(err){setStatus(err.message||"Buchung fehlgeschlagen. Bitte versuche es erneut.","error");await refreshSlots();}
+  finally{$("#submit").disabled=false;}
+});
+if(SUPABASE_URL.startsWith("https://") && SUPABASE_PUBLISHABLE_KEY.startsWith("sb_publishable_") && window.supabase){
+  client=window.supabase.createClient(SUPABASE_URL,SUPABASE_PUBLISHABLE_KEY);
+}
+renderSlots();
+refreshSlots();
+setInterval(refreshSlots,30000);
+</script>
+</body>
+</html>
